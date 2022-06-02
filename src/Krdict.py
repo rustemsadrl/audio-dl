@@ -14,8 +14,7 @@ from .Config import Config
 from .Exceptions import NoResultsException
 from .Util import log_debug
 
-search_url = "https://shtooka.net/search.php?str="
-languages = ['ar', 'be', 'cs', 'zh', 'de', 'en', 'it', 'fr', 'nl', 'pl', 'pt', 'ru', 'es', 'sv', 'sr', 'uk', 'wo', 'wuu', 'jusi']
+search_url = "https://krdict.korean.go.kr/eng/dicSearchDetail/searchDetailWordsResult?nation=eng&nationCode=6&searchFlag=Y&sort=W&currentPage=1&ParaWordNo=&syllablePosition=&actCategoryList=&all_gubun=ALL&gubun=W&gubun=P&gubun=E&all_wordNativeCode=ALL&wordNativeCode=1&wordNativeCode=2&wordNativeCode=3&wordNativeCode=0&all_sp_code=ALL&sp_code=1&sp_code=2&sp_code=3&sp_code=4&sp_code=5&sp_code=6&sp_code=7&sp_code=8&sp_code=9&sp_code=10&sp_code=11&sp_code=12&sp_code=13&sp_code=14&sp_code=27&all_imcnt=ALL&imcnt=1&imcnt=2&imcnt=3&imcnt=0&all_multimedia=ALL&multimedia=P&multimedia=I&multimedia=V&multimedia=A&multimedia=S&multimedia=N&searchSyllableStart=&searchSyllableEnd=&searchOp=AND&searchTarget=word&searchOrglanguage=all&wordCondition=wordSame&query="
 
 
 @dataclass
@@ -30,7 +29,7 @@ class Pronunciation:
 	word: str
 	mw: AnkiQt
 	audio: Union[str, None] = None
-	
+
 	def download_pronunciation(self):
 		from .. import temp_dir
 		req = urllib.request.Request(self.download_url)
@@ -40,10 +39,10 @@ class Pronunciation:
 			res: HTTPResponse = urllib.request.urlopen(req)
 			f.write(res.read())
 			res.close()
-		
+
 		media_name = self.mw.col.media.add_file(dl_path)
 		self.audio = media_name
-	
+
 	def remove_pronunciation(self):
 		self.mw.col.media.trash_files([self.audio])
 		self.audio = None
@@ -54,11 +53,11 @@ def prepare_query_string(input: str, config: Config) -> str:
 	query = query.strip()
 	for char in config.get_config_object("replaceCharacters").value:
 		query = query.replace(char, "")
-	log_debug("[Shtooka.py] Using search query: %s" % query)
+	log_debug("[krdict.py] Using search query: %s" % query)
 	return query
 
 
-class Shtooka:
+class Krdict:
 	def __init__(self, word: str, language: str, mw, config: Config):
 		self.html: BeautifulSoup
 		self.language = language
@@ -69,19 +68,19 @@ class Shtooka:
 		opener = urllib.request.build_opener()
 		opener.addheaders = [('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36')]
 		urllib.request.install_opener(opener)
-	
+
 	def load_search_query(self):
 		try:
-			log_debug("[Shtooka.py] Reading result page")
+			log_debug("[krdict.py] Reading result page")
 			page = urllib.request.urlopen(url=search_url + urllib.parse.quote_plus(self.word)).read()
-			log_debug("[Shtooka.py] Done with reading result page")
+			log_debug("[krdict.py] Done with reading result page")
 
-			log_debug("[Shtooka.py] Initializing BS4")
+			log_debug("[krdict.py] Initializing BS4")
 			self.html = BeautifulSoup(page, "html.parser")
-			log_debug("[Shtooka.py] Initialized BS4")
+			log_debug("[krdict.py] Initialized BS4")
 			return self
 		except Exception as e:
-			log_debug("[Shtooka.py] Exception: " + str(e))
+			log_debug("[krdict.py] Exception: " + str(e))
 			if isinstance(e, HTTPError):
 				e: HTTPError
 				if e.code == 404:
@@ -90,41 +89,28 @@ class Shtooka:
 				raise e
 	
 	def get_pronunciations(self):
-		log_debug("[Shtooka.py] Going through all pronunciations")
-		if self.html.find(string='Translations: (experimental feature)'):
-			pronunciations: Tag = self.html.find_all("h1", class_="nice")
-			for pronunciation in pronunciations:
-				for sound in pronunciation.find_all("img", class_="player_mini"):
-					username = sound.get('title')
-					origin = ""
-					id = 1
-					vote_count = ""
-					dl_url = sound.get('onclick').split('\'')[5].replace("http://", "https://")
-					is_ogg = True
-					word = sound.find_parent().get_text().strip()
-					self.pronunciations.append(Pronunciation(self.language, username, origin, id, vote_count, dl_url, is_ogg, word, self.mw))
-			return self
-		elif self.html.find(string=re.compile("Matching recordings:")):
-			pronunciations: Tag = self.html.find_all("div", class_="sound")
-			for pronunciation in pronunciations:
-				username = pronunciation.find("div", class_="sound_top").span.get_text().replace("\n", "").replace("\t", "")
+		log_debug("[krdict.py] Going through all pronunciations")
+		pronunciations: Tag = self.html.find_all("span", class_="search_sub")
+		
+		for pronunciation in pronunciations:
+			links = pronunciation.find_all("a")
+			for link in links:
+				link.span.clear()
+				username = link.find_previous().get_text().strip()
 				origin = ""
 				id = 1
 				vote_count = ""
-				dl_url = pronunciation.find("div", class_="sound_top").find("div", class_="download").ul.find("a").get('href').replace("http://", "https://")
+				dl_url = link.get('href').replace('javascript:fnSoundPlay(\'', '').replace('\');', '')
 				is_ogg = True
-				word = re.sub(r'\s\s\s', ' ', pronunciation.find("div", class_="sound_bottom").get_text().strip())
-				self.pronunciations.append(Pronunciation(self.language, username, origin, id, vote_count, dl_url, is_ogg, word, self.mw))
-			return self
-		elif self.html.find(string=re.compile('We did not find any recording for:')):
-			raise NoResultsException()
-	
+				self.pronunciations.append(Pronunciation(self.language, username, origin, id, vote_count, dl_url, is_ogg, self.word, self.mw))
+		return self
+
 	def download_pronunciations(self):
 		for pronunciation in self.pronunciations:
 			pronunciation.download_pronunciation()
 		
 		return self
-	
+
 	@staticmethod
 	def cleanup():
 		from .. import temp_dir

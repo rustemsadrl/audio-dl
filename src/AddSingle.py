@@ -41,8 +41,8 @@ class PronunciationWidget(QWidget):
 
         word = QLabel(pronunciation.word)
         word_info_layout.addWidget(word)
-        word.setStyleSheet("font-size: 24px; font-weight: bold; color: #000000;")
-        more_info = QLabel("by " + pronunciation.user + " • " + str(pronunciation.votes) + " votes")
+        word.setStyleSheet("font-size: 20px; font-weight: bold; color: #000000;")
+        more_info = QLabel(pronunciation.user)
         more_info.setStyleSheet("color: #000000;")
         word_info_layout.addWidget(more_info)
         word_info_layout.setContentsMargins(0, 15, 0, 15)
@@ -87,7 +87,7 @@ class AddSingle(QDialog):
         background-color: #C5D4E2;
         """)
         # Add to list a new item (item is simply an entry in your list)
-
+		
         for pronunciation in pronunciations:
             item = QListWidgetItem(pronunciation_list)
             # Instanciate a custom widget
