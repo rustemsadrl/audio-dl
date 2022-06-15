@@ -14,13 +14,13 @@ from .Config import Config
 from .Exceptions import NoResultsException
 from .Util import log_debug
 
-search_url = "https://krdict.korean.go.kr/eng/dicSearchDetail/searchDetailWordsResult?nation=eng&nationCode=6&searchFlag=Y&sort=W&currentPage=1&ParaWordNo=&syllablePosition=&actCategoryList=&all_gubun=ALL&gubun=W&gubun=P&gubun=E&all_wordNativeCode=ALL&wordNativeCode=1&wordNativeCode=2&wordNativeCode=3&wordNativeCode=0&all_sp_code=ALL&sp_code=1&sp_code=2&sp_code=3&sp_code=4&sp_code=5&sp_code=6&sp_code=7&sp_code=8&sp_code=9&sp_code=10&sp_code=11&sp_code=12&sp_code=13&sp_code=14&sp_code=27&all_imcnt=ALL&imcnt=1&imcnt=2&imcnt=3&imcnt=0&all_multimedia=ALL&multimedia=P&multimedia=I&multimedia=V&multimedia=A&multimedia=S&multimedia=N&searchSyllableStart=&searchSyllableEnd=&searchOp=AND&searchTarget=word&searchOrglanguage=all&wordCondition=wordSame&query="
+search_url = "https://krdict.korean.go.kr/eng/dicSearchDetail/searchDetailWordsResult?nation=eng&nationCode=6&searchFlag=Y&sort=C&currentPage=1&ParaWordNo=&syllablePosition=&actCategoryList=&all_gubun=ALL&gubun=W&gubun=P&gubun=E&all_wordNativeCode=ALL&wordNativeCode=1&wordNativeCode=2&wordNativeCode=3&wordNativeCode=0&all_sp_code=ALL&sp_code=1&sp_code=2&sp_code=3&sp_code=4&sp_code=5&sp_code=6&sp_code=7&sp_code=8&sp_code=9&sp_code=10&sp_code=11&sp_code=12&sp_code=13&sp_code=14&sp_code=27&all_imcnt=ALL&imcnt=1&imcnt=2&imcnt=3&imcnt=0&all_multimedia=ALL&multimedia=P&multimedia=I&multimedia=V&multimedia=A&multimedia=S&multimedia=N&searchSyllableStart=&searchSyllableEnd=&searchOp=AND&searchTarget=word&searchOrglanguage=all&wordCondition=wordSame&query="
 
 
 @dataclass
 class Pronunciation:
 	language: str
-	user: str
+	subtitle: str
 	origin: str
 	id: int
 	votes: str
@@ -34,7 +34,7 @@ class Pronunciation:
 		from .. import temp_dir
 		req = urllib.request.Request(self.download_url)
 		#dl_path = os.path.join(temp_dir, "pronunciation_" + self.language + "_" + self.word + (".ogg" if self.is_ogg else ".mp3"))
-		dl_path = os.path.join(temp_dir, self.download_url.split("/")[5])
+		dl_path = os.path.join(temp_dir, self.download_url.split("/")[len(self.download_url.split("/"))-1])
 		with open(dl_path, "wb") as f:
 			res: HTTPResponse = urllib.request.urlopen(req)
 			f.write(res.read())
@@ -96,13 +96,13 @@ class Krdict:
 			links = pronunciation.find_all("a")
 			for link in links:
 				link.span.clear()
-				username = link.find_previous().get_text().strip()
+				subtitle = link.find_previous().get_text().strip() + ' - ' + link.find_parent().find_parent().find_parent().dd.get_text().replace('1.', '').strip().split(';')[0]
 				origin = ""
 				id = 1
 				vote_count = ""
 				dl_url = link.get('href').replace('javascript:fnSoundPlay(\'', '').replace('\');', '')
 				is_ogg = True
-				self.pronunciations.append(Pronunciation(self.language, username, origin, id, vote_count, dl_url, is_ogg, self.word, self.mw))
+				self.pronunciations.append(Pronunciation(self.language, subtitle, origin, id, vote_count, dl_url, is_ogg, self.word, self.mw))
 		return self
 
 	def download_pronunciations(self):
