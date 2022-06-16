@@ -35,7 +35,7 @@ class Pronunciation:
 		from .. import temp_dir
 		req = urllib.request.Request(self.download_url)
 		#dl_path = os.path.join(temp_dir, "pronunciation_" + self.language + "_" + self.word + (".ogg" if self.is_ogg else ".mp3"))
-		dl_path = os.path.join(temp_dir, self.download_url.split("/")[5])
+		dl_path = os.path.join(temp_dir, self.download_url.split("/")[len(self.download_url.split("/"))-1])
 		with open(dl_path, "wb") as f:
 			res: HTTPResponse = urllib.request.urlopen(req)
 			f.write(res.read())
@@ -95,26 +95,26 @@ class Shtooka:
 			pronunciations: Tag = self.html.find_all("h1", class_="nice")
 			for pronunciation in pronunciations:
 				for sound in pronunciation.find_all("img", class_="player_mini"):
-					username = sound.get('title')
+					subtitle = sound.get('title')
 					origin = ""
 					id = 1
 					vote_count = ""
 					dl_url = sound.get('onclick').split('\'')[5].replace("http://", "https://")
 					is_ogg = True
 					word = sound.find_parent().get_text().strip()
-					self.pronunciations.append(Pronunciation(self.language, username, origin, id, vote_count, dl_url, is_ogg, word, self.mw))
+					self.pronunciations.append(Pronunciation(self.language, subtitle, origin, id, vote_count, dl_url, is_ogg, word, self.mw))
 			return self
 		elif self.html.find(string=re.compile("Matching recordings:")):
 			pronunciations: Tag = self.html.find_all("div", class_="sound")
 			for pronunciation in pronunciations:
-				username = pronunciation.find("div", class_="sound_top").span.get_text().replace("\n", "").replace("\t", "")
+				subtitle = pronunciation.find("div", class_="sound_top").span.get_text().replace("\n", "").replace("\t", "")
 				origin = ""
 				id = 1
 				vote_count = ""
 				dl_url = pronunciation.find("div", class_="sound_top").find("div", class_="download").ul.find("a").get('href').replace("http://", "https://")
 				is_ogg = True
 				word = re.sub(r'\s\s\s', ' ', pronunciation.find("div", class_="sound_bottom").get_text().strip())
-				self.pronunciations.append(Pronunciation(self.language, username, origin, id, vote_count, dl_url, is_ogg, word, self.mw))
+				self.pronunciations.append(Pronunciation(self.language, subtitle, origin, id, vote_count, dl_url, is_ogg, word, self.mw))
 			return self
 		elif self.html.find(string=re.compile('We did not find any recording for:')):
 			raise NoResultsException()

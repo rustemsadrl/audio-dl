@@ -20,7 +20,7 @@ search_url = "https://krdict.korean.go.kr/eng/dicSearchDetail/searchDetailWordsR
 @dataclass
 class Pronunciation:
 	language: str
-	subtitle: str
+	user: str
 	origin: str
 	id: int
 	votes: str

@@ -72,7 +72,8 @@ class AddSingle(QDialog):
         self.selected_pronunciation: Pronunciation = None
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
-        self.description = "<h1>audio-dl</h1><p>Please select the audio you want to add.</p><p><small>You can hold down the shift key when clicking on the forvo <br/> button in the editor to automatically select the top pronunciation.</small></p>"
+        self.description = "<h1>audio-dl</h1><p>Please select the audio you want to add.</p>"
+        #self.description = "<h1>audio-dl</h1><p>Please select the audio you want to add.</p><p><small>You can hold down the shift key when clicking on the forvo <br/> button in the editor to automatically select the top pronunciation.</small></p>"
 
         if hidden_entries_amount > 0:
             self.description += f"<b><small>There are {hidden_entries_amount} more entries which you chose to hide by deactivating .ogg fallback.</small></b>"
