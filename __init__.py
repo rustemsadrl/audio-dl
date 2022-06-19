@@ -19,6 +19,9 @@ from .src.Exceptions import NoResultsException, FieldNotFoundException
 from .src.FieldSelector import FieldSelector
 from .src.Shtooka import Shtooka, Pronunciation
 from .src.Krdict import Krdict, Pronunciation
+from .src.Naver import Naver, Pronunciation
+from .src.JapanesePod101 import JapanesePod101, Pronunciation
+from .src.JapanesePod101Alt import JapanesePod101Alt, Pronunciation
 from .src.LanguageSelector import LanguageSelector
 from .src.Util import get_field_id, parse_version
 from .src.WhatsNew import get_changelogs, WhatsNew
@@ -61,16 +64,16 @@ def add_pronunciation(editor: Editor, mode: Union[None, str] = None):
 		if modifiers == Qt.ShiftModifier:
 			"""Choose top pronunciation automatically when shift key is held down"""
 			mode = "auto"
-
+	
 	deck_id = editor.card.did if editor.card is not None else editor.parentWindow.deckChooser.selectedId()
-
+	
 	if editor.note is not None:
 		note_type_id = editor.note.mid
 	elif editor.card is not None:
 		note_type_id = editor.card.note().mid
 	else:
 		note_type_id = editor.mw.col.models.current()["id"]
-
+	
 	search_field = config.get_note_type_specific_config_object("searchField", note_type_id)
 	if search_field is None or search_field.value not in editor.note.keys():
 		d = FieldSelector(editor.parentWindow, editor.mw, note_type_id, "searchField", config)
@@ -78,7 +81,7 @@ def add_pronunciation(editor: Editor, mode: Union[None, str] = None):
 		search_field = handle_field_select(d, note_type_id, "searchField", editor)
 		if search_field is None:
 			return
-
+	
 	audio_field = config.get_note_type_specific_config_object("audioField", note_type_id)
 	if audio_field is None or audio_field.value not in editor.note.keys():
 		d = FieldSelector(editor.parentWindow, editor.mw, note_type_id, "audioField", config)
@@ -86,14 +89,14 @@ def add_pronunciation(editor: Editor, mode: Union[None, str] = None):
 		audio_field = handle_field_select(d, note_type_id, "audioField", editor)
 		if audio_field is None:
 			return
-
+	
 	search_field = search_field.value
 	audio_field = audio_field.value
-
+	
 	if editor.note is None:
 		showInfo("Please enter a search term in the field '" + search_field + "'.", editor.widget)
 		return
-
+	
 	if mode == 'input':
 		query, suc = aqt.utils.getText("Please enter a custom search term:", editor.widget,
 									   title="Enter custom search term")
@@ -106,12 +109,12 @@ def add_pronunciation(editor: Editor, mode: Union[None, str] = None):
 	else:
 		showInfo("Please enter a search term in the field '" + search_field + "'.", editor.widget)
 		return
-
+	
 	query = BeautifulSoup(query, "html.parser").text
-
+	
 	if deck_id is not None:
 		config_lang = config.get_deck_specific_config_object("language", deck_id)
-
+		
 		if config_lang is None:
 			d = LanguageSelector(editor.parentWindow, mw.col.decks.get(deck_id)["name"])
 			d.exec()
@@ -124,24 +127,35 @@ def add_pronunciation(editor: Editor, mode: Union[None, str] = None):
 				return
 		else:
 			language = config_lang.value
-
+		
 		try:
-			if language == "ko":
-				krdict = Krdict(query, language, editor.mw, config).load_search_query()
-				if krdict is not None:
-					results = krdict.get_pronunciations().pronunciations
-				else:
+			if language == "ja":
+				kana = editor.note['Reading']
+				jp101 = JapanesePod101(query, language, editor.mw, config, kana).load_search_query()
+				jp101alt = JapanesePod101Alt(query, language, editor.mw, config).load_search_query()
+				results = jp101.get_pronunciations().pronunciations + jp101alt.get_pronunciations().pronunciations
+				if not results:
 					raise NoResultsException()
+			elif language == "ko":
+				naver = Naver(query, language, editor.mw, config).load_search_query().get_pronunciations().pronunciations
+				if naver:
+					results = naver
+				else:
+					krdict = Krdict(query, language, editor.mw, config).load_search_query()
+					if krdict:
+						results = krdict.get_pronunciations().pronunciations
+					else:
+						raise NoResultsException()
 			else:
 				shtooka = Shtooka(query, language, editor.mw, config).load_search_query()
-				if shtooka is not None:
+				if shtooka:
 					results = shtooka.get_pronunciations().pronunciations
 				else:
 					raise NoResultsException()
 		except NoResultsException:
 			showInfo("No results found! :(", editor.widget)
 			return
-
+		
 		hidden_entries_amount = 0
 		if config.get_config_object("skipOggFallback").value:
 			viable_entries = [p for p in results if not p.is_ogg]
@@ -150,8 +164,8 @@ def add_pronunciation(editor: Editor, mode: Union[None, str] = None):
 				showInfo(f"No results found! :(\nThere are {hidden_entries_amount} entries which you chose to skip by deactivating .ogg fallback.")
 				return
 			results = viable_entries
-
-
+		
+		
 		if mode == "auto":
 			def add_automatically(auto_results):
 				"""If shift key is held down"""
@@ -176,23 +190,23 @@ def add_pronunciation(editor: Editor, mode: Union[None, str] = None):
 					showWarning(
 						"Couldn't find field '%s' for adding the audio string. Please create a field with this name or change it in the config for the note type id %s" % (
 							audio_field, str(note_type_id)), editor.widget)
-
+				
 				if config.get_config_object("playAudioAfterSingleAddAutomaticSelection").value:  # play audio if desired
 					anki.sound.play(top.audio)
-
+				
 				def flush_field():
 					if not editor.addMode:  # save
 						editor.note.flush()
 					editor.currentField = get_field_id(audio_field, editor.note)
 					editor.loadNote(focusTo=get_field_id(audio_field, editor.note))
-
+				
 				editor.saveNow(flush_field, keepFocus=True)
-
+			
 			editor.saveNow(functools.partial(add_automatically, results), keepFocus=False)
 		else:
 			dialog = AddSingle(editor.parentWindow, pronunciations=results, hidden_entries_amount=hidden_entries_amount)
 			dialog.exec()
-
+			
 			Shtooka.cleanup()
 			if dialog.selected_pronunciation is not None:
 				try:
@@ -231,9 +245,9 @@ def add_editor_button(buttons: List[str], editor: Editor):
 		iconstr = editor.resourceToData(os.path.join(asset_dir, "icon.png"))
 	else:
 		iconstr = "/_anki/imgs/{}.png".format(os.path.join(asset_dir, "icon.png"))
-
+	
 	return buttons + [
-		"<div title=\"Hold down shift + click to select top audio\n\nCTRL+E to open window\nCTRL+SHIFT+F to select top audio\nCTRL+S to search for custom term\" style=\"float: right; margin: 0 3px\"><div style=\"display: flex; width: 50px; height: 25px; justify-content: center; align-items: center; padding: 0 5px; border-radius: 5px; background-color: #0094FF; color: #ffffff; font-size: 10px\" onclick=\"pycmd('audio_dl');return false;\"><img style=\"height: 20px; width: 20px\" src=\"%s\"/></div></div>" % iconstr]
+		"<div title=\"Hold down shift + click to select top audio\n\nCTRL+E to open window\nCTRL+SHIFT+F to select top audio\nCTRL+S to search for custom term\" style=\"float: right; margin: 0 3px\"><div style=\"display: flex; width: 50px; height: 25px; justify-content: center; align-items: center; padding: 0 5px; border-radius: 5px; background-color: #FF6B00; color: #ffffff; font-size: 10px\" onclick=\"pycmd('audio_dl');return false;\"><img style=\"height: 20px; width: 20px\" src=\"%s\"/></div></div>" % iconstr]
 
 
 def add_editor_shortcut(shortcuts: List[Tuple], editor: Editor):

@@ -23,7 +23,7 @@ class CustomScrollbar(QScrollBar):
         self.setStyleSheet("""
 
         QScrollBar:vertical {
-            background-color: #C5D4E2;
+            background-color: #E4007F;
             width: 7px;
             padding: 0px 3px 0px 0px;
         }

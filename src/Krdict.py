@@ -64,17 +64,17 @@ class Krdict:
 		self.word = prepare_query_string(word, config)
 		self.pronunciations: List[Pronunciation] = []
 		self.mw = mw
-
+		
 		opener = urllib.request.build_opener()
-		opener.addheaders = [('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36')]
+		opener.addheaders = [('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36')]
 		urllib.request.install_opener(opener)
-
+	
 	def load_search_query(self):
 		try:
 			log_debug("[krdict.py] Reading result page")
 			page = urllib.request.urlopen(url=search_url + urllib.parse.quote_plus(self.word)).read()
 			log_debug("[krdict.py] Done with reading result page")
-
+			
 			log_debug("[krdict.py] Initializing BS4")
 			self.html = BeautifulSoup(page, "html.parser")
 			log_debug("[krdict.py] Initialized BS4")
@@ -103,6 +103,8 @@ class Krdict:
 				dl_url = link.get('href').replace('javascript:fnSoundPlay(\'', '').replace('\');', '')
 				is_ogg = True
 				self.pronunciations.append(Pronunciation(self.language, subtitle, origin, id, vote_count, dl_url, is_ogg, self.word, self.mw))
+		if not self.pronunciations:
+			raise NoResultsException()
 		return self
 
 	def download_pronunciations(self):
